@@ -11,7 +11,7 @@ local mapTable = function(f, t)
         newTable[key] = value
     end
 
-    return newTable 
+    return newTable
 end
 
 
@@ -51,7 +51,7 @@ local backSubs = function(s)
     coroutine.yield("")
     s = string.reverse(s)
     local sLen = string.len(s)
-    for inc=0, sLen - 1,1 do 
+    for inc=0, sLen - 1,1 do
         for i=1, sLen - inc, 1 do
             local c = s:sub(i, i+inc)
             if c then
