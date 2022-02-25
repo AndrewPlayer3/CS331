@@ -1,11 +1,11 @@
 lexit = require "lexit"
 
-str = "3"
+STR = "12#a\n#b\n#c\nab"
 
-Foo = lexit.lex("+12345")
+Foo = lexit.lex(STR)
 
 while true do
-    a, b = Foo()
+    local a, b = Foo()
     if a == nil or b == nil then break end
     print(a, b)
 end

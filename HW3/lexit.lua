@@ -60,7 +60,7 @@ end
 local function isPrintableASCII(c)
     if c:len() ~= 1 then
        return false 
-    elseif c:match("[%w|%p|%s]") then
+    elseif c:match("[%w%p%s]") then
         return true
     end
     return false
@@ -81,8 +81,10 @@ end
 
 function lexit.lex(program)
 
+
     --> Lexer Variables <--
     -----------------------
+
 
     local pos       -- Index of next character in program
     local state     -- Current state of our state machine
@@ -95,44 +97,58 @@ function lexit.lex(program)
     --> States <--
     --------------
 
+
     local DONE     = 0
     local START    = 1
     local LETTER   = 2   -- a-zA-Z
     local DIGIT    = 3   -- 0-9
-    local DIGDOT   = 4   -- . (in NumericLiteral)
     local DOT      = 5   -- .
-    local PLUS     = 6   -- +
-    local MINUS    = 7   -- -
-    local STAR     = 8   -- *
-    local ASSIGN   = 9   -- =
-    local EQUALS   = 10  -- ==
-    local NEQUALS  = 11  -- !=
-    local LTHAN    = 12  -- <
-    local GTHAN    = 13  -- >
-    local LTHANEQ  = 14  -- <=
-    local GTHANEQ  = 15  -- >=
-    local DIVIDE   = 16  -- /
-    local MOD      = 17  -- %
-    local LBRACK   = 18  -- [
-    local RBRACK   = 19  -- ]
+    local QUOTE    = 6   -- "
+
+
+    local keywords = {
+        "and",
+        "char",
+        "cr",
+        "elif",
+        "else",
+        "false",
+        "func",
+        "if",
+        "not",
+        "or",
+        "print",
+        "read",
+        "return",
+        "true",
+        "while"
+    }
+
+
+    local currentQuote = ""
+
 
     --> Character Utility Functions <--
     -----------------------------------
+
 
     -- Return the current character (char at pos)
     local function currentChar()
         return program:sub(pos, pos)
     end
 
+
     -- Return the next character (char at pos + 1)
     local function nextChar()
         return program:sub(pos + 1, pos + 1)
     end
 
+
     -- Skip the character at pos
     local function drop1()
         pos = pos + 1
     end
+
 
     -- Add the current character to the lexeme
     local function add1()
@@ -140,10 +156,11 @@ function lexit.lex(program)
         drop1()
     end
 
+
     -- Skip whitespace and comments, move pos to the next lexeme 
     local function skipToNextLexeme()
         while true do
-            
+ 
             -- Skip whitespace
             while isWhitespace(currentChar()) do
                 drop1()
@@ -161,6 +178,13 @@ function lexit.lex(program)
                 if currentChar() == "" then
                     return
                 end
+                if currentChar() == "\n" then
+                    drop1()
+                    while(isWhitespace(currentChar())) do
+                        drop1()
+                    end
+                    return
+                end
                 drop1()
             end
         end
@@ -170,10 +194,12 @@ function lexit.lex(program)
     --> State Handler Functions <--
     -------------------------------
 
+
     -- State DONE: lexeme is done (this should not be called)
     local function handle_DONE()
         error("'DONE' state should not be handled!\n")
     end
+
 
     -- State START: no character has been read yet
     local function handle_START()
@@ -181,6 +207,8 @@ function lexit.lex(program)
             add1()
             state = DONE
             category = lexit.MAL
+        elseif currentChar() == "#" then
+            skipToNextLexeme()
         elseif isLetter(ch) or ch == '_' then
             add1()
             state = LETTER
@@ -190,62 +218,46 @@ function lexit.lex(program)
         elseif ch == '.' then
             add1()
             state = DOT
-        elseif ch == '+' then
+        elseif ch == '=' then
             add1()
-            state = PLUS
-        elseif ch == '-' then
-            add1()
-            state = MINUS
-        -- elseif ch == '=' then
-        --     if nextChar == '=' then
-        --         add1()
-        --         add1()
-        --         state = EQUALS
-        --     else
-        --         add1()
-        --         state = DONE
-        --         category = lexit.MAL
-        --     end
+            if currentChar() == '=' then
+                add1()
+            end
+            state = DONE
+            category = lexit.OP
         elseif ch == '!' then
-            if nextChar() == '=' then
+            add1()
+            if currentChar() == '=' then
                 add1()
-                add1()
-                state = NEQUALS
+                state = DONE
+                category = lexit.OP
             else
                 add1()
                 state = DONE
-                category = lexit.MAL
+                category = lexit.PUNCT
             end
         elseif ch == '<' then
-            if nextChar() == '=' then
+            add1()
+            if currentChar() == '=' then
                 add1()
-                add1()
-                state = LTHANEQ
-            else
-                add1()
-                state = LTHAN
             end
+            state = DONE
+            category = lexit.OP
         elseif ch == '>' then
-            if nextChar() == '=' then
+            add1()
+            if currentChar() == '=' then
                 add1()
-                add1()
-                state = GTHANEQ
-            else
-                add1()
-                state = GTHAN
             end
-        elseif ch == '/' then
+            state = DONE
+            category = lexit.OP
+        elseif ch:match("[%%%/%[%]%+%-%*]") then
             add1()
-            state = DIVIDE
-        elseif ch == '%' then
+            state = DONE
+            category = lexit.OP
+        elseif ch:match("[\'\"]") then
+            currentQuote = ch
             add1()
-            state = MOD
-        elseif ch == '[' then
-            add1()
-            state = LBRACK
-        elseif ch == ']' then
-            add1()
-            state = RBRACK
+            state = QUOTE
         else
             add1()
             state = DONE
@@ -253,24 +265,58 @@ function lexit.lex(program)
         end
     end
 
+
     -- State LETTER: we are in an Identifier
     local function handle_LETTER()
         if isLetter(ch) or ch == '_' or isDigit(ch) then
             add1()
         else
             state = DONE
-            if lexstr == 'begin' or lexstr == 'end' or lexstr == 'print' then
-                category = lexit.KEY
-            else
-                category = lexit.ID
+            for i = 0, 15, 1 do
+                if lexstr == keywords[i] then
+                    category = lexit.KEY
+                    return
+                end
             end
+            category = lexit.ID
         end
     end
+
 
     -- State DIGIT: we are in a NUMLIT, and we have not seen '.'.
     local function handle_DIGIT()
         if isDigit(ch) then
             add1()
+        elseif currentChar():match("[eE]") then
+            pos = pos + 1
+            if currentChar():match("+") then
+                if(isDigit(nextChar())) then
+                    pos = pos - 1
+                    add1()
+                    add1()
+                    while(isDigit(currentChar())) do
+                        add1()
+                    end
+                    state = DONE
+                    category = lexit.NUMLIT
+                else
+                    pos = pos - 1
+                    state = DONE
+                    category = lexit.NUMLIT
+                end
+            elseif isDigit(currentChar()) then
+                pos = pos - 1
+                add1()
+                while isDigit(currentChar()) do
+                    add1()
+                end
+                state = DONE 
+                category = lexit.NUMLIT
+            else
+                pos = pos - 1
+                state = DONE
+                category = lexit.NUMLIT
+            end
         elseif ch == '.' then
             state = DONE
             category = lexit.NUMLIT
@@ -280,84 +326,40 @@ function lexit.lex(program)
         end
     end
 
-    local function handle_DIGDOT()
-        if isDigit(ch) then
-            add1()
-            state = DONE
-            category = lexit.NUMLIT
-        end
-    end
 
+    -- State DOT: We have seen a "." and nothing else.
     local function handle_DOT()
         state = DONE
         category = lexit.PUNCT
     end
 
-    local function handle_PLUS()
-        if isDigit(ch) then
-            state = DONE
-            category = lexit.OP
-        elseif ch == "." then
-            if isDigit(nextChar()) then
-                add1()
-                state = lexit.DIGDOT
-            else
+    -- State QUOTE: We have seen a ' or " and nothing else.
+    local function handle_QUOTE()
+        while true do
+            if currentChar() == "" or currentChar() == "\n" then
                 state = DONE
-                category = lexit.OP
+                category = lexit.MAL
+                break
+            elseif currentChar():match(currentQuote) then
+                add1()
+                state = DONE
+                category = lexit.STRLIT
+                break
             end
-        elseif ch == "+" or ch == "=" then
             add1()
-            state = DONE
-        else
-            state = DONE
-            category = lexit.OP
         end
     end
 
-    local function handle_MINUS()
-        if isDigit(ch) then 
-            add1()
-        elseif ch == "." then
-            if isDigit(nextChar()) then
-                add1()
-                state = lexit.DIGDOT
-            else
-                state = DONE
-                category = lexit.OP
-            end
-        elseif ch == "-" or ch == "=" then
-            add1()
-            state = DONE
-            category = lexit.OP
-        else
-            state = DONE
-            category = lexit.OP
-        end
-    end
-
-    local function handle_STAR()
-        if ch == "*" then
-            add1()
-            state = DONE
-            category = lexit.OP
-        else
-            add1()
-            state = DONE
-            category = lexit.OP
-        end
-    end
 
     handlers = {
         [DONE] = handle_DONE,
         [START] = handle_START,
         [LETTER] = handle_LETTER,
         [DIGIT] = handle_DIGIT,
-        [DIGDOT] = handle_DIGDOT,
         [DOT] = handle_DOT,
-        [PLUS] = handle_PLUS,
-        [MINUS] = handle_MINUS,
-        [STAR] = handle_STAR
+        [QUOTE] = handle_QUOTE,
     }
+
 
     local function getLexeme(dummy1, dummy2)
         if pos > program:len() then
