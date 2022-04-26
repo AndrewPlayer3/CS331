@@ -10,6 +10,7 @@
     dup 
     1 = 
         if
+            \ Operation finished, nothing to do.
         else 
             dup 
             2 mod 0 = 
