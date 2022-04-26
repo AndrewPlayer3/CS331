@@ -135,7 +135,7 @@ end
 function parse_program()
 
     local good, ast
-    
+
     good, ast = parse_stmt_list()
 
     return good, ast

@@ -742,6 +742,7 @@ function test_simple(t)
     statein = deepcopy(emptystate)
     expoutput = {}
     expstateout = {v={["b"]=37}, a={}, f={}}
+
     checkInterp(t, ast, input, statein, expoutput, expstateout,
       "Simple input")
 
