@@ -92,6 +92,5 @@ print(cr);
 
 # Wait for user
 # (unnecessary with tenrec.lua, so commented out)
-#print(cr, "Press ENTER to quit ");
-#dummy = read();
-
+print(cr, "Press ENTER to quit ");
+dummy = read();
