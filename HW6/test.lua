@@ -1,8 +1,6 @@
 local interpit = require("interpit")
 local parseit = require("parseit")
 
-input = {"37"}
-
 local incount = 0
 local function incall(param)
     if param ~= nil then
@@ -13,6 +11,20 @@ local function incall(param)
         return input[incount]
     else
         return ""
+    end
+end
+
+local output = {}
+local function outcall(str)
+    if type(str) == "string" then
+        print("CORRECT", str)
+        table.insert(output, str)
+    elseif str == nil then
+        print("NIL STRING", str)
+        table.insert(output, "")
+    else
+        print("OUT ON NON-STRING", str)
+        table.insert(output, "")
     end
 end
 
@@ -109,8 +121,7 @@ function isState(tab)
     for k, v in pairs(tab.v) do
         if type(k) ~= "string" or type(v) ~= "number" then
             print("v items not string:number")
-            print(type(k))
-            print(type(v))
+
             return false
         end
         if k:sub(1,1) ~= "_"
@@ -166,21 +177,40 @@ end
 -- local prog = "a = 3; a = a + 10;"
 -- local prog = "123"
 -- local prog = "while(0) {};"
-local prog = "print(char(asdsad));"
+local prog = "func sq() {b = a * a;} a = 7; print(sq(),cr);"
 
 
-local expstateout = {v={["b"]=37}, a={}, f={}}
+local expstateout = {v={["a"]=7,["b"]=49}, a={}, f={["f"]=
+{STMT_LIST, {ASSN_STMT, {SIMPLE_VAR, "b"}, {{BIN_OP, "*"},
+{SIMPLE_VAR, "a"}, {SIMPLE_VAR, "a"}}}}
+}}
 
 
--- local state = { v={}, a={}, f={} }
+local state = { v={}, a={}, f={} }
 -- local incall = io.read
 
-local state = {v={["a"]=1,["b"]=2}, a={["a"]={[2]=3,[4]=7},["b"]={[2]=7,[4]=3}}, f={}}
+-- local state = {v={["a"]=1,["b"]=2}, a={["a"]={[2]=3,[4]=7},["b"]={[2]=7,[4]=3}}, f={}}
 
-local outcall = print
+local _ast =
+    {STMT_LIST,
+        {FUNC_DEF, "sq",
+            {STMT_LIST,
+            {RETURN_STMT,
+                {{BIN_OP, "*"}, {SIMPLE_VAR, "a"}, {SIMPLE_VAR, "a"}}
+            }
+            }
+        },
+        {ASSN_STMT,
+            {SIMPLE_VAR, "a"},
+            {NUMLIT_VAL, "7"}
+        },
+        {PRINT_STMT,
+            {FUNC_CALL, "sq"},
+            {CR_OUT}
+        }
+    }
 
--- local ast = {STMT_LIST, {ASSN_STMT, {SIMPLE_VAR, "b"},
---       {READ_CALL}}}
+-- local outcall = print
 
 local good, _, ast = parseit.parse(prog)
 if not good then
@@ -189,7 +219,6 @@ else
     interpit.interp(ast, state, incall, outcall)
 end
 
-
 print("\nState:")
 print(dump(state))
 print()
@@ -197,3 +226,4 @@ print("Expected State:")
 print(dump(expstateout))
 print(isState(state))
 print(isState(expstateout))
+print(dump(output))

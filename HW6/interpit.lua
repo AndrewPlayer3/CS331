@@ -127,11 +127,6 @@ end
 
 function interpit.interp(_ast, state, incall, outcall)
 
-    -- print("\nAST:")
-    -- print(astToStr(_ast))
-    -- print()
-    -- print("OUTPUT:")
-
     local interp_stmt_list
     local interp_stmt
     local eval_expr
@@ -144,7 +139,8 @@ function interpit.interp(_ast, state, incall, outcall)
 
     function interp_stmt(ast)
         if ast[1] == PRINT_STMT then
-            for i = 2, #ast do
+            local i = 2
+            while i <= #ast do
                 if ast[i][1] == STRLIT_OUT then
                     local str = ast[i][2]
                     outcall(str:sub(2, str:len() - 1))
@@ -153,15 +149,23 @@ function interpit.interp(_ast, state, incall, outcall)
                 elseif ast[i][1] == CHAR_CALL then
                     local expr_ast = ast[i][2]
                     local str = eval_expr(expr_ast)
-                    if str >= 256 or str < 0 then
-                        outcall(utf8.char(0))
+                    if str > 256 or str <= 0 then
+                        outcall(string.char(0))
                     else
-                        outcall(utf8.char(str))
+                        outcall(string.char(str))
+                    end
+                elseif ast[i][1] == FUNC_CALL then
+                    local result = eval_expr(ast[i])
+                    if type(result) == "number" then
+                        outcall(numToStr(result))
+                    else
+                        outcall(result)
                     end
                 else
                     local val = eval_expr(ast[i])
                     outcall(numToStr(val))
                 end
+                i = i + 1
             end
 
         elseif ast[1] == FUNC_DEF then
@@ -178,7 +182,7 @@ function interpit.interp(_ast, state, incall, outcall)
             interp_stmt_list(funcbody)
 
         elseif ast[1] == RETURN_STMT then
-            print("*** Not sure if this needs to exist.")
+            state.v["return"] = eval_expr(ast[2])
 
         elseif ast[1] == ASSN_STMT then
 
@@ -209,7 +213,7 @@ function interpit.interp(_ast, state, incall, outcall)
             local predicate = eval_expr(ast[2])
 
             -- if case
-            if predicate then
+            if predicate and predicate ~= 0 then
                 interp_stmt_list(ast[3])
             else
                 local i = 4
@@ -218,7 +222,7 @@ function interpit.interp(_ast, state, incall, outcall)
                     if ast[i][1] ~= STMT_LIST then
                         local sub_predicate = eval_expr(ast[i])
                         i = i + 1
-                        if (sub_predicate) then
+                        if sub_predicate and sub_predicate ~= 0 then
                             interp_stmt_list(ast[i])
                             break
                         end
@@ -287,6 +291,20 @@ function interpit.interp(_ast, state, incall, outcall)
                 result = input
             end
 
+        elseif ast[1] == FUNC_CALL then
+
+            local funcname = ast[2]
+            local funcbody = state.f[funcname]
+            if funcbody == nil then
+                funcbody = { STMT_LIST }
+            end
+            interp_stmt_list(funcbody)
+            if state.v["return"] == nil then
+                result = 0
+            else
+                result = state.v["return"]
+            end
+
         elseif ast[1][1] == BIN_OP then
             if ast[1][2] == "+" then
                 result = eval_expr(ast[2]) + eval_expr(ast[3])
@@ -295,33 +313,47 @@ function interpit.interp(_ast, state, incall, outcall)
             elseif ast[1][2] == "*" then
                 result = eval_expr(ast[2]) * eval_expr(ast[3])
             elseif ast[1][2] == "/" then
-                result = eval_expr(ast[2]) / eval_expr(ast[3])
+                if eval_expr(ast[3]) == 0 then
+                    result = 0
+                else
+                    local a = eval_expr(ast[2])
+                    local b = eval_expr(ast[3])
+                    result = math.floor(math.abs(a) / math.abs(b)) * (a / math.abs(a)) * (b / math.abs(b))
+                end
             elseif ast[1][2] == "%" then
-                result = eval_expr(ast[2]) % eval_expr(ast[3])
+                if eval_expr(ast[3]) == 0 then
+                    result = 0
+                else
+                    result = eval_expr(ast[2]) % eval_expr(ast[3])
+                end
             elseif ast[1][2] == "==" then
-                result = eval_expr(ast[2]) == eval_expr(ast[3])
+                result = boolToInt(eval_expr(ast[2]) == eval_expr(ast[3]))
             elseif ast[1][2] == "!=" then
-                result = eval_expr(ast[2]) ~= eval_expr(ast[3])
+                result = boolToInt(eval_expr(ast[2]) ~= eval_expr(ast[3]))
             elseif ast[1][2] == "<" then
-                result = eval_expr(ast[2]) < eval_expr(ast[3])
+                result = boolToInt(eval_expr(ast[2]) < eval_expr(ast[3]))
             elseif ast[1][2] == "<=" then
-                result = eval_expr(ast[2]) <= eval_expr(ast[3])
+                result = boolToInt(eval_expr(ast[2]) <= eval_expr(ast[3]))
             elseif ast[1][2] == ">" then
-                result = eval_expr(ast[2]) > eval_expr(ast[3])
+                result = boolToInt(eval_expr(ast[2]) > eval_expr(ast[3]))
             elseif ast[1][2] == ">=" then
-                result = eval_expr(ast[2]) >= eval_expr(ast[3])
+                result = boolToInt(eval_expr(ast[2]) >= eval_expr(ast[3]))
+            elseif ast[1][2] == "and" then
+                result = boolToInt(eval_expr(ast[2]) ~= 0 and eval_expr(ast[3]) ~= 0)
+            elseif ast[1][2] == "or" then
+                result = boolToInt(eval_expr(ast[2]) ~= 0 or eval_expr(ast[3]) ~= 0)
             end
         
         elseif ast[1][1] == UN_OP then
 
             if ast[1][2] == "+" then
                 result = 0 + eval_expr(ast[2])
-            else
+            elseif ast[1][2] == "-" then
                 result = 0 - eval_expr(ast[2])
+            elseif ast[1][2] == "not" then
+                local predicate = eval_expr(ast[2]) == 0
+                result = boolToInt(predicate)
             end
-
-        else
-            print(astToStr(ast))
         end
 
         return result
