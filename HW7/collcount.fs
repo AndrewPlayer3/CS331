@@ -8,8 +8,7 @@
 ( ----------------- )
 : coll 
     dup 
-    1 = 
-        if
+    1 = if
             \ Operation finished, nothing to do.
         else 
             dup 
@@ -28,8 +27,7 @@
     0 swap 
     begin 
         dup 
-        1 > 
-        while 
-            coll 
-        repeat 
-            drop ;
+        1 > while 
+                coll 
+            repeat 
+                drop ;
