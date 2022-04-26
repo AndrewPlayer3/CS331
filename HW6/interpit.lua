@@ -318,7 +318,7 @@ function interpit.interp(_ast, state, incall, outcall)
                 else
                     local a = eval_expr(ast[2])
                     local b = eval_expr(ast[3])
-                    result = math.floor(math.abs(a) / math.abs(b)) * (a / math.abs(a)) * (b / math.abs(b))
+                    result = (math.abs(a) // math.abs(b)) * (a // math.abs(a)) * (b // math.abs(b))
                 end
             elseif ast[1][2] == "%" then
                 if eval_expr(ast[3]) == 0 then

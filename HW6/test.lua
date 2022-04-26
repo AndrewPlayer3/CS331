@@ -177,7 +177,7 @@ end
 -- local prog = "a = 3; a = a + 10;"
 -- local prog = "123"
 -- local prog = "while(0) {};"
-local prog = "func sq() {b = a * a;} a = 7; print(sq(),cr);"
+local prog = "print(-3 / 2 * 2);"
 
 
 local expstateout = {v={["a"]=7,["b"]=49}, a={}, f={["f"]=
